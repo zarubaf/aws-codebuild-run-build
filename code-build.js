@@ -31,7 +31,7 @@ async function build(sdk, params) {
   const start = await sdk.codeBuild.startBuild(params).promise();
 
   // Wait for the build to "complete"
-  return waitForBuildEndTime(sdk, start.build);
+  return waitForBuildEndTime(sdk, start.build, params.hideLog);
 }
 
 async function waitForBuildEndTime(
@@ -40,7 +40,8 @@ async function waitForBuildEndTime(
   seqEmptyLogs,
   totalEvents,
   throttleCount,
-  nextToken
+  nextToken,
+  hideLog
 ) {
   const {
     codeBuild,
@@ -59,7 +60,6 @@ async function waitForBuildEndTime(
   const { logGroupName, logStreamName } = logName(cloudWatchLogsArn);
 
   let errObject = false;
-
   // Check the state
   const [batch, cloudWatch = {}] = await Promise.all([
     codeBuild.batchGetBuilds({ ids: [id] }).promise(),
@@ -126,7 +126,7 @@ async function waitForBuildEndTime(
   // CloudWatchLogs have line endings.
   // I trim and then log each line
   // to ensure that the line ending is OS specific.
-  events.forEach(({ message }) => console.log(message.trimEnd()));
+  // events.forEach(({ message }) => console.log(message.trimEnd()));
 
   // Stop after the build is ended and we've received two consecutive empty log responses
   if (current.endTime && seqEmptyLogs >= 2) {
@@ -152,6 +152,7 @@ async function waitForBuildEndTime(
 
 function githubInputs() {
   const projectName = core.getInput("project-name", { required: true });
+  const hideLog = core.getBooleanInput("hide-log");
   const { owner, repo } = github.context.repo;
   const { payload } = github.context;
   // The github.context.sha is evaluated on import.
@@ -177,6 +178,7 @@ function githubInputs() {
 
   return {
     projectName,
+    hideLog,
     owner,
     repo,
     sourceVersion,
